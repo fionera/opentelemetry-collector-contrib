@@ -518,7 +518,7 @@ func TestAddResourceTargetInfo(t *testing.T) {
 	for _, tc := range []struct {
 		desc      string
 		resource  pcommon.Resource
-		settings  Settings
+		settings  ToPRWSettings
 		timestamp pcommon.Timestamp
 		expected  map[string]*prompb.TimeSeries
 	}{
@@ -530,7 +530,7 @@ func TestAddResourceTargetInfo(t *testing.T) {
 		{
 			desc:     "disable target info metric",
 			resource: testdata.GenerateMetricsNoLibraries().ResourceMetrics().At(0).Resource(),
-			settings: Settings{DisableTargetInfo: true},
+			settings: ToPRWSettings{DisableTargetInfo: true},
 			expected: map[string]*prompb.TimeSeries{},
 		},
 		{
@@ -562,7 +562,7 @@ func TestAddResourceTargetInfo(t *testing.T) {
 			desc:      "with resource, with namespace",
 			resource:  testdata.GenerateMetricsNoLibraries().ResourceMetrics().At(0).Resource(),
 			timestamp: testdata.TestMetricStartTimestamp,
-			settings:  Settings{Namespace: "foo"},
+			settings:  ToPRWSettings{Namespace: "foo"},
 			expected: map[string]*prompb.TimeSeries{
 				"info-__name__-foo_target_info-resource_attr-resource-attr-val-1": {
 					Labels: []prompb.Label{
@@ -758,7 +758,7 @@ func TestAddSingleSummaryDataPoint(t *testing.T) {
 					metric.Summary().DataPoints().At(x),
 					pcommon.NewResource(),
 					metric,
-					Settings{
+					ToPRWSettings{
 						ExportCreatedMetric: true,
 					},
 					got,
@@ -869,7 +869,7 @@ func TestAddSingleHistogramDataPoint(t *testing.T) {
 					metric.Histogram().DataPoints().At(x),
 					pcommon.NewResource(),
 					metric,
-					Settings{
+					ToPRWSettings{
 						ExportCreatedMetric: true,
 					},
 					got,

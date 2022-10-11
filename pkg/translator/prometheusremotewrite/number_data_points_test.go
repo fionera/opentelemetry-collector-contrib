@@ -58,7 +58,7 @@ func TestAddSingleGaugeNumberDataPoint(t *testing.T) {
 					metric.Gauge().DataPoints().At(x),
 					pcommon.NewResource(),
 					metric,
-					Settings{},
+					ToPRWSettings{},
 					gotSeries,
 				)
 			}
@@ -234,7 +234,7 @@ func TestAddSingleSumNumberDataPoint(t *testing.T) {
 					metric.Sum().DataPoints().At(x),
 					pcommon.NewResource(),
 					metric,
-					Settings{ExportCreatedMetric: true},
+					ToPRWSettings{ExportCreatedMetric: true},
 					got,
 				)
 			}

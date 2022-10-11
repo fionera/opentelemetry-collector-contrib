@@ -35,7 +35,7 @@ func BenchmarkFromMetrics(b *testing.B) {
 											payload := createExportRequest(resourceAttributeCount, histogramCount, nonHistogramCount, labelsPerMetric, exemplarsPerSeries)
 
 											for i := 0; i < b.N; i++ {
-												_, err := FromMetrics(payload.Metrics(), Settings{})
+												_, err := FromMetrics(payload.Metrics(), ToPRWSettings{})
 
 												if err != nil {
 													require.NoError(b, err)

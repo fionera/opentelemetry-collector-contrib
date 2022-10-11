@@ -44,7 +44,7 @@ type prwExporter struct {
 	settings          component.TelemetrySettings
 	retrySettings     exporterhelper.RetrySettings
 	wal               *prweWAL
-	exporterSettings  prometheusremotewrite.Settings
+	exporterSettings  prometheusremotewrite.ToPRWSettings
 }
 
 // newPRWExporter initializes a new prwExporter instance and sets fields accordingly.
@@ -71,7 +71,7 @@ func newPRWExporter(cfg *Config, set exporter.CreateSettings) (*prwExporter, err
 		clientSettings:    &cfg.HTTPClientSettings,
 		settings:          set.TelemetrySettings,
 		retrySettings:     cfg.RetrySettings,
-		exporterSettings: prometheusremotewrite.Settings{
+		exporterSettings: prometheusremotewrite.ToPRWSettings{
 			Namespace:           cfg.Namespace,
 			ExternalLabels:      sanitizedLabels,
 			DisableTargetInfo:   !cfg.TargetInfo.Enabled,

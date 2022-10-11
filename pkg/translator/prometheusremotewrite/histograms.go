@@ -20,7 +20,7 @@ func addSingleExponentialHistogramDataPoint(
 	metric string,
 	pt pmetric.ExponentialHistogramDataPoint,
 	resource pcommon.Resource,
-	settings Settings,
+	settings ToPRWSettings,
 	series map[string]*prompb.TimeSeries,
 ) error {
 	labels := createAttributes(

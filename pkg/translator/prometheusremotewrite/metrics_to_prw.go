@@ -15,7 +15,7 @@ import (
 	prometheustranslator "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/prometheus"
 )
 
-type Settings struct {
+type ToPRWSettings struct {
 	Namespace           string
 	ExternalLabels      map[string]string
 	DisableTargetInfo   bool
@@ -25,7 +25,7 @@ type Settings struct {
 }
 
 // FromMetrics converts pmetric.Metrics to prometheus remote write format.
-func FromMetrics(md pmetric.Metrics, settings Settings) (tsMap map[string]*prompb.TimeSeries, errs error) {
+func FromMetrics(md pmetric.Metrics, settings ToPRWSettings) (tsMap map[string]*prompb.TimeSeries, errs error) {
 	tsMap = make(map[string]*prompb.TimeSeries)
 
 	resourceMetricsSlice := md.ResourceMetrics()
