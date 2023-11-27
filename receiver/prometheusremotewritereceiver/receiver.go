@@ -15,6 +15,7 @@
 package prometheusremotewritereceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusremotewritereceiver"
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -22,7 +23,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/prometheus/prometheus/storage/remote"
+	"github.com/gogo/protobuf/proto"
+	"github.com/golang/snappy"
+	"github.com/prometheus/prometheus/prompb"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/consumer"
@@ -74,6 +77,10 @@ func NewReceiver(params receiver.CreateSettings, config *Config, consumer consum
 	return zr, err
 }
 
+func noopDecoder(body io.ReadCloser) (io.ReadCloser, error) {
+	return body, nil
+}
+
 // Start - remote write
 func (rec *PrometheusRemoteWriteReceiver) Start(_ context.Context, host component.Host) error {
 	if host == nil {
@@ -85,9 +92,7 @@ func (rec *PrometheusRemoteWriteReceiver) Start(_ context.Context, host componen
 	rec.startOnce.Do(func() {
 		err = nil
 		rec.host = host
-		rec.server, err = rec.config.HTTPServerSettings.ToServer(host, rec.params.TelemetrySettings, rec, confighttp.WithDecoder("snappy", func(body io.ReadCloser) (io.ReadCloser, error) {
-			return body, nil
-		}))
+		rec.server, err = rec.config.HTTPServerSettings.ToServer(host, rec.params.TelemetrySettings, rec, confighttp.WithDecoder("snappy", noopDecoder))
 		var listener net.Listener
 		listener, err = rec.config.HTTPServerSettings.ToListener()
 		if err != nil {
@@ -104,13 +109,61 @@ func (rec *PrometheusRemoteWriteReceiver) Start(_ context.Context, host componen
 	return err
 }
 
+type pooledDecoder struct {
+	bufferPool       sync.Pool
+	writeRequestPool sync.Pool
+}
+
+func (pd *pooledDecoder) acquireAndDecode(r io.Reader) (*prompb.WriteRequest, error) {
+	rawBuffer := pd.bufferPool.Get().(*bytes.Buffer)
+	rawBuffer.Reset()
+	defer pd.bufferPool.Put(rawBuffer)
+
+	if _, err := rawBuffer.ReadFrom(r); err != nil {
+		return nil, err
+	}
+
+	decBuffer := pd.bufferPool.Get().(*bytes.Buffer)
+	decBuffer.Reset()
+	defer pd.bufferPool.Put(decBuffer)
+
+	decoded, err := snappy.Decode(decBuffer.AvailableBuffer(), rawBuffer.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	req := pd.writeRequestPool.Get().(*prompb.WriteRequest)
+	if err := proto.Unmarshal(decoded, req); err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+func (pd *pooledDecoder) release(req *prompb.WriteRequest) {
+	req.Reset()
+	pd.writeRequestPool.Put(req)
+}
+
+var pd = pooledDecoder{
+	bufferPool: sync.Pool{New: func() any {
+		return &bytes.Buffer{}
+	}},
+	writeRequestPool: sync.Pool{New: func() any {
+		return &prompb.WriteRequest{}
+	}},
+}
+
 func (rec *PrometheusRemoteWriteReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := rec.obsrecv.StartMetricsOp(r.Context())
-	req, err := remote.DecodeWriteRequest(r.Body)
+
+	req, err := pd.acquireAndDecode(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	defer r.Body.Close()
+	defer pd.release(req)
 
 	pms, err := prometheusremotewrite.FromTimeSeries(req.Timeseries, prometheusremotewrite.FromPRWSettings{
 		TimeThreshold: *rec.timeThreshold,
